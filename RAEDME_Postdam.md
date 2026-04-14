@@ -10,7 +10,7 @@
 ---
 
 ## 0. 你当前起点（唯一前提）
-
+下载地址 ：https://cdn-lfs-cn-1.modelscope.cn/prod/lfs-objects/38/3b/72f9d43f26cc54ffa92b3f3b879cd999ff29bf97a6a2e88cb40d1bd7ce49?filename=ISPRS_Potsdam.zip&namespace=OpenDataLab&repository=ISPRS_Potsdam&revision=master&tag=dataset&auth_key=1776166290-0edcbb6a2bfc418686f7c33a8f58e061-0-97aa1a8250ee5b84b43a7a3e40c50f45
 假设 Potsdam 根目录是：`D:\ZHC\数据集\Potsdam`
 
 里面只有：
