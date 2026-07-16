@@ -1,268 +1,69 @@
-我设置了：test_evaluator = None   # 或者删除 test_evaluator 这一行
-然后还是报错
-Traceback (most recent call last):
-  File "/mnt/ht2-nas2/EO_test/openmmlab-archive/src/v1/mmseg/tools/test.py", line 123, in <module>
-    main()
-  File "/mnt/ht2-nas2/EO_test/openmmlab-archive/src/v1/mmseg/tools/test.py", line 116, in main
-    runner = Runner.from_cfg(cfg)
-             ^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/ht2-nas2/EO_test/miniconda3/envs/mmdinov3-cd/lib/python3.12/site-packages/mmengine/runner/runner.py", line 463, in from_cfg
-    runner = cls(
-             ^^^^
-  File "/mnt/ht2-nas2/EO_test/miniconda3/envs/mmdinov3-cd/lib/python3.12/site-packages/mmengine/runner/runner.py", line 355, in __init__
-    raise ValueError(
-ValueError: test_dataloader, test_cfg, and test_evaluator should be either all None or not None, but got test_dataloader={'batch_size': 16, 'num_workers': 4, 'persistent_workers': True, 'sampler': {'type': 'DefaultSampler', 'shuffle': False}, 'dataset': {'type': 'LoveDADataset', 'data_root': '/mnt/ht2-nas2/EO_test/dataset/2021LoveDA/', 'data_prefix': {'img_path': 'img_dir/test'}, 'ignore_index': 255, 'reduce_zero_label': True, 'pipeline': [{'type': 'LoadImageFromFile', 'to_float32': True}, {'type': 'PackSegInputs'}]}}, test_cfg={'type': 'TestLoop'}, test_evaluator=None
-ERROR conda.cli.main_run:execute(142): `conda run python3 /mnt/ht2-nas2/EO_test/openmmlab-archive/src/v1/mmseg/tools/test.py /mnt/ht2-nas2/EO_test/openmmlab-archive/src/v1/mmseg/projects/dinov3/LoveDA/configs/loveda_dinov3-swin_upernet_e50-finetune/loveda_dinov3-swin_upernet_e50-finetune_lr1e4.py /mnt/ht2-nas2/EO_test/openmmlab-archive/src/v1/mmseg/projects/dinov3/LoveDA/checkpoints/loveda_dinov3-swin_upernet_e50-finetune_lr1e4.pth --work-dir /mnt/htzzb2/EO_test/zhc/work_dirs/loveda_test/loveda_dinov3-swin_upernet_e50-finetune/loveda_dinov3-swin_upernet_e50-finetune_lr1e4 --show-dir /mnt/htzzb2/EO_test/zhc/work_dirs/loveda_test/loveda_dinov3-swin_upernet_e50-finetune/loveda_dinov3-swin_upernet_e50-finetune_lr1e4` failed. (See above for error)
-
-我的config是：
 import os
+import numpy as np
+from PIL import Image
 
-_base_ = ['../../../../../configs/_base_/default_runtime.py']
-custom_imports = dict(
-    imports=[
-        "projects.dinov3.LoveDA.dinov3",
-        "projects.olmoearth.svdt.olmoearth"
-    ],
-    allow_failed_imports=False,
-)
+def convert_single_channel_to_rgb(input_dir, output_dir):
+    """
+    将单通道 png 图片（像素值为 0-6）转换为指定调色板的三通道 RGB 图片。
+    """
+    # 定义 0-6 对应的 RGB 调色板
+    # 确保数据类型为 uint8
+    palette = np.array([
+        [255, 255, 255], # 0: 白色
+        [255, 0, 0],     # 1: 红色
+        [255, 255, 0],   # 2: 黄色
+        [0, 0, 255],     # 3: 蓝色
+        [159, 129, 183], # 4: 紫色
+        [0, 255, 0],     # 5: 绿色
+        [255, 195, 128]  # 6: 橙/肉色
+    ], dtype=np.uint8)
 
-ignore_index = 255
-num_classes = 7
-crop_size = 512
-patch_size = 4
-swin_huge_channels = [352, 704, 1408, 2816]
-dataset_type = 'LoveDADataset'
+    # 创建输出文件夹（如果不存在）
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
-# Accept either an extracted pure backbone state_dict or the merged DINOv3
-# distillation checkpoint. The wrapper prefers model_ema.backbone weights.
-swin_huge_checkpoint = os.path.join(
-    os.environ.get('MM_ARCHIVE_CKPT_HOME'), 
-    'swin-distill', 
-    '30999', 
-    'swintransformer-huge.pt'
-)
-data_root = '/mnt/ht2-nas2/EO_test/dataset/2021LoveDA/'
+    # 获取输入文件夹内所有的 png 文件
+    filenames = [f for f in os.listdir(input_dir) if f.lower().endswith('.png')]
 
-train_pipeline = [
-    dict(type="LoadImageFromFile", to_float32=True),
-    dict(type="LoadAnnotations"),
-    dict(
-        type="RandomCrop",
-        crop_size=(crop_size, crop_size),
-        cat_max_ratio=0.75,
-    ),
-    dict(
-        type="RandomRotate",
-        prob=0.5,
-        degree=90,
-        pad_val=0,
-        seg_pad_val=ignore_index,
-    ),
-    dict(type="RandomFlip", prob=0.5, direction="horizontal"),
-    dict(type="RandomFlip", prob=0.5, direction="vertical"),
-    dict(type="PackSegInputs"),
-]
+    if not filenames:
+        print(f"未在输入路径 '{input_dir}' 中找到 PNG 图片。")
+        return
 
-val_pipeline = [
-    dict(type="LoadImageFromFile", to_float32=True),
-    dict(type="LoadAnnotations"),
-    dict(type="PackSegInputs"),
-]
+    print(f"找到 {len(filenames)} 张图片，开始转换...")
 
-train_dataloader = dict(
-    batch_size=16,
-    num_workers=4,
-    persistent_workers=True,
-    sampler=dict(type="DefaultSampler", shuffle=True),
-    dataset=dict(
-        type=dataset_type,
-        data_root=data_root,
-        data_prefix=dict(
-            img_path="img_dir/train",
-            seg_map_path="ann_dir/train",
-        ),
-        ignore_index=ignore_index,
-        reduce_zero_label=True,
-        pipeline=train_pipeline,
-    ),
-)
+    for filename in filenames:
+        input_path = os.path.join(input_dir, filename)
+        output_path = os.path.join(output_dir, filename)
 
-val_dataloader = dict(
-    batch_size=16,
-    num_workers=4,
-    persistent_workers=True,
-    sampler=dict(type="DefaultSampler", shuffle=False),
-    dataset=dict(
-        type=dataset_type,
-        data_root=data_root,
-        data_prefix=dict(
-            img_path="img_dir/val",
-            seg_map_path="ann_dir/val",
-        ),
-        ignore_index=ignore_index,
-        reduce_zero_label=True,
-        pipeline=val_pipeline,
-    ),
-)
+        try:
+            # 读取单通道图像
+            with Image.open(input_path) as img:
+                # 转换为单通道灰度模式（'L'模式），以防原图通道格式有偏差
+                img_gray = img.convert('L')
+                img_np = np.array(img_gray)
 
-test_pipeline = [
-    dict(type="LoadImageFromFile", to_float32=True),
-    dict(type="PackSegInputs"),   # 没有 seg 字段时，PackSegInputs 会安全跳过
-]
+            # 检查像素值是否超出 0-6 的范围
+            if img_np.max() > 6:
+                # 如果存在超出 0-6 的像素（例如某些图像的背景可能是 255），
+                # 可以选择将其裁剪或报错。这里使用 clip 将超出范围的值限制在 0-6。
+                # 如果确信数据只有 0-6，可以去掉这一行以提高微小的效率。
+                img_np = np.clip(img_np, 0, 6)
 
-test_dataloader = dict(
-    batch_size=16,
-    num_workers=4,
-    persistent_workers=True,
-    sampler=dict(type="DefaultSampler", shuffle=False),
-    dataset=dict(
-        type=dataset_type,                # 保持与训练/验证相同的 Dataset 类
-        data_root=data_root,
-        data_prefix=dict(
-            img_path="img_dir/test",      # 请根据实际测试图像路径修改
-            # seg_map_path 不提供，或显式设为 None
-        ),
-        ignore_index=ignore_index,        # 即使没有标注，这些参数仍保留（不影响）
-        reduce_zero_label=True,
-        pipeline=test_pipeline,
-    ),
-)
+            # 使用 NumPy 的索引映射，直接将 (H, W) 映射为 (H, W, 3) 形状的 RGB 数组
+            rgb_np = palette[img_np]
 
-val_evaluator = dict(
-    type="OlmoEarthIoUMetric",
-    num_classes=num_classes,
-    iou_metrics=["mIoU", "mFscore"],
-    ignore_index=ignore_index,
-    use_valid_mask=False,
-)
-test_evaluator = None
+            # 将 NumPy 数组转回 PIL Image 并保存为三通道 RGB 图像
+            rgb_img = Image.fromarray(rgb_np, mode='RGB')
+            rgb_img.save(output_path)
 
-data_preprocessor = dict(
-    type="SegDataPreProcessor",
-    mean=[76.19, 78.34, 71.53],
-    std=[33.65, 34.96, 38.84],
-    bgr_to_rgb=True,
-    pad_val=0,
-    seg_pad_val=ignore_index,
-    size_divisor=32,
-    test_cfg=dict(size_divisor=32),
-)
-norm_cfg = dict(type="SyncBN", requires_grad=True)
-model = dict(
-    type="EncoderDecoder",
-    data_preprocessor=data_preprocessor,
-    backbone=dict(
-        type="DINOv3DistilledSwinHuge",
-        checkpoint=swin_huge_checkpoint,
-        img_size=crop_size,
-        patch_size=patch_size,
-        window_size=8,
-        out_indices=(0, 1, 2, 3),
-        use_ema=True,
-        frozen=False,
-    ),
-    decode_head=dict(
-        type="UPerHead",
-        in_channels=swin_huge_channels,
-        in_index=[0, 1, 2, 3],
-        pool_scales=(1, 2, 3, 6),
-        channels=512,
-        dropout_ratio=0.1,
-        num_classes=num_classes,
-        ignore_index=ignore_index,
-        align_corners=False,
-        loss_decode=dict(
-            type="CrossEntropyLoss",
-            use_sigmoid=False,
-            loss_weight=1.0,
-        ),
-        norm_cfg=norm_cfg
-    ),
-    auxiliary_head=dict(
-        type="FCNHead",
-        in_channels=1408,
-        in_index=2,
-        channels=512,
-        num_convs=1,
-        concat_input=False,
-        dropout_ratio=0.1,
-        num_classes=num_classes,
-        ignore_index=ignore_index,
-        align_corners=False,
-        loss_decode=dict(
-            type="CrossEntropyLoss",
-            use_sigmoid=False,
-            loss_weight=0.4,
-        ),
-        norm_cfg=norm_cfg
-    ),
-    test_cfg=dict(
-        mode="slide",
-        crop_size=(crop_size, crop_size),
-        stride=(crop_size // 2, crop_size // 2),
-    ),
-    train_cfg=dict()
-)
+        except Exception as e:
+            print(f"处理图片 {filename} 时发生错误: {e}")
 
-optim_wrapper = dict(
-    type='OptimWrapper',
-    optimizer=dict(
-        type='AdamW',
-        lr=1e-4,
-        weight_decay=0.05),
-    paramwise_cfg=dict(
-        custom_keys={
-            "backbone": dict(lr_mult=0.1, decay_mult=1.0)
-        }
-    ),
-    clip_grad=dict(max_norm=35, norm_type=2))
+    print("转换完成！")
 
-param_scheduler = [
-    dict(
-        type='LinearLR',
-        start_factor=1.0 / 3,
-        by_epoch=True,
-        begin=0,
-        end=5),
-    dict(
-        type='MultiStepLR',
-        begin=5,
-        end=50,
-        by_epoch=True,
-        milestones=[60, 80],
-        gamma=0.1),
-]
+if __name__ == "__main__":
+    # 配置你的文件夹路径
+    INPUT_FOLDER = "path/to/your/input_folder"    # 替换为你的输入文件夹路径
+    OUTPUT_FOLDER = "path/to/your/output_folder"  # 替换为你要保存的文件夹路径
 
-train_cfg = dict(type="EpochBasedTrainLoop", max_epochs=50, val_interval=10)
-val_cfg = dict(type="ValLoop")
-test_cfg = dict(type="TestLoop")
-
-default_hooks = dict(
-    timer=dict(type="IterTimerHook"),
-    logger=dict(type="LoggerHook", interval=100, log_metric_by_epoch=True),
-    param_scheduler=dict(type="ParamSchedulerHook"),
-    checkpoint=dict(
-        type="CheckpointHook",
-        by_epoch=True,
-        interval=10,
-        save_best="mIoU",
-        rule="greater",
-        max_keep_ckpts=3,
-    ),
-    sampler_seed=dict(type="DistSamplerSeedHook"),
-    visualization=dict(type="OlmoEarthVisualizationHook"),
-)
-
-env_cfg = dict(
-    cudnn_benchmark=True,
-    mp_cfg=dict(mp_start_method="fork", opencv_num_threads=0),
-    dist_cfg=dict(backend="nccl"),
-)
-
-default_scope = "mmseg"
-log_level = "INFO"
-load_from = None
-resume = False
-auto_scale_lr = dict(enable=False, base_batch_size=4)
-
-报错是怎么回事
+    convert_single_channel_to_rgb(INPUT_FOLDER, OUTPUT_FOLDER)
