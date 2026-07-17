@@ -1,2 +1,14 @@
 mIoU	Execution Time	background	building	road	water	barren	forest	agriculture
 0.55822	143.223351	0.490911	0.617099	0.594471	0.820207	0.234063	0.481183	0.669604
+
+{
+  "mIoU": 0.5349366068840027,
+  "ExecutionTime": 141.54812502861023,
+  "background": 0.4495032727718353,
+  "building": 0.6254215240478516,
+  "road": 0.5461922883987427,
+  "water": 0.8184899687767029,
+  "barren": 0.150630921125412,
+  "forest": 0.48234307765960693,
+  "agriculture": 0.6719750165939331
+}
